@@ -15,8 +15,8 @@ interface AdminLoginModalProps {
 }
 
 const AdminLoginModal = ({ isOpen, onClose, onLogin }: AdminLoginModalProps) => {
-  const [email, setEmail] = useState('shaheenshanu246@gmail.com');
-  const [password, setPassword] = useState('Shaheen@2003');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { toast } = useToast();
@@ -89,7 +89,7 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }: AdminLoginModalProps) => 
               onChange={(e) => setEmail(e.target.value)}
               required
               className="bg-input border-border"
-              readOnly
+              placeholder="Enter admin email"
             />
           </div>
 
@@ -102,6 +102,7 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }: AdminLoginModalProps) => 
               onChange={(e) => setPassword(e.target.value)}
               required
               className="bg-input border-border"
+              placeholder="Enter admin password"
             />
           </div>
 
