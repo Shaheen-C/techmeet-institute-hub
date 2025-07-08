@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Users, 
   GraduationCap, 
@@ -20,7 +21,10 @@ import {
   Shield,
   Building2,
   Check,
-  X
+  X,
+  Clock,
+  UserCheck,
+  AlertCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +42,7 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
   const [meetings, setMeetings] = useState([]);
   const [instituteIds, setInstituteIds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [newInstituteId, setNewInstituteId] = useState('');
@@ -55,6 +60,7 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
+        .neq('status', 'pending_approval')
         .order('created_at', { ascending: false });
 
       if (usersError) {
@@ -67,6 +73,14 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
       } else {
         setUsers(usersData || []);
       }
+
+      // Fetch pending users
+      const { data: pendingUsersData } = await supabase
+        .from('pending_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      setPendingUsers(pendingUsersData || []);
 
       // Fetch all classes
       const { data: classesData } = await supabase
@@ -192,6 +206,83 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
     }
   };
 
+  const handleApproveUser = async (pendingUser: any) => {
+    try {
+      // Create the user account
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: pendingUser.email,
+        password: 'TempPassword123!', // Temporary password
+        email_confirm: true,
+        user_metadata: {
+          name: pendingUser.name,
+          institute_id: pendingUser.institute_id,
+          role: pendingUser.role
+        }
+      });
+
+      if (authError) {
+        toast({
+          title: "Error",
+          description: "Failed to create user account.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Remove from pending users
+      const { error: deleteError } = await supabase
+        .from('pending_users')
+        .delete()
+        .eq('id', pendingUser.id);
+
+      if (deleteError) {
+        console.error('Error removing pending user:', deleteError);
+      }
+
+      // Refresh data
+      fetchAllData();
+
+      toast({
+        title: "User Approved",
+        description: `${pendingUser.name} has been approved and can now log in.`,
+      });
+    } catch (error) {
+      console.error('Error approving user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve user.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectUser = async (pendingUser: any) => {
+    try {
+      const { error } = await supabase
+        .from('pending_users')
+        .delete()
+        .eq('id', pendingUser.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to reject user.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setPendingUsers(pendingUsers.filter(user => user.id !== pendingUser.id));
+
+      toast({
+        title: "User Rejected",
+        description: `${pendingUser.name}'s registration has been rejected.`,
+      });
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -265,6 +356,17 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
             </CardContent>
           </Card>
 
+          <Card className="card-gradient animate-slide-in-up delay-150">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-500">{pendingUsers.length}</div>
+              <p className="text-xs text-muted-foreground">Awaiting approval</p>
+            </CardContent>
+          </Card>
+
           <Card className="card-gradient animate-slide-in-up delay-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Classes</CardTitle>
@@ -312,140 +414,277 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
           </Card>
         </div>
 
-        {/* Institute ID Management */}
-        <Card className="card-gradient animate-slide-in-up delay-600">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Institute ID Management
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="institute-id">Institute ID</Label>
-                  <Input
-                    id="institute-id"
-                    placeholder="e.g., TECH001"
-                    value={newInstituteId}
-                    onChange={(e) => setNewInstituteId(e.target.value)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="institute-name">Institute Name</Label>
-                  <Input
-                    id="institute-name"
-                    placeholder="e.g., Tech Institute Main Campus"
-                    value={newInstituteName}
-                    onChange={(e) => setNewInstituteName(e.target.value)}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button onClick={handleAddInstituteId} className="btn-gradient">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add ID
-                  </Button>
-                </div>
-              </div>
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="users" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 bg-card">
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="pending" className="relative">
+              Pending Approvals
+              {pendingUsers.length > 0 && (
+                <Badge className="ml-2 bg-yellow-500 text-black text-xs">
+                  {pendingUsers.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="institutes">Institutes</TabsTrigger>
+            <TabsTrigger value="system">System</TabsTrigger>
+          </TabsList>
 
-              <div className="space-y-2">
-                {instituteIds.map((institute) => (
-                  <div 
-                    key={institute.id} 
-                    className="flex items-center justify-between p-3 bg-secondary rounded-lg"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div>
-                        <p className="font-medium">{institute.institute_id}</p>
-                        <p className="text-sm text-muted-foreground">{institute.institute_name}</p>
+          <TabsContent value="pending" className="space-y-6">
+            <Card className="card-gradient animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5" />
+                  Pending User Approvals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pendingUsers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No pending approvals</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingUsers.map((user) => (
+                      <div 
+                        key={user.id} 
+                        className="flex items-center justify-between p-4 bg-secondary rounded-lg"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-black">
+                              {user.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium">{user.name}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {user.institute_id} • {user.role} • {new Date(user.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleApproveUser(user)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleRejectUser(user)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <Card className="card-gradient animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  User Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search users..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                    <SelectTrigger className="w-full sm:w-48">
+                      <SelectValue placeholder="Filter by role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="teacher">Teacher</SelectItem>
+                      <SelectItem value="student">Student</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  {filteredUsers.map((user) => (
+                    <div 
+                      key={user.id} 
+                      className="flex items-center justify-between p-4 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-primary-foreground">
+                            {user.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium">{user.name}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                          <p className="text-xs text-muted-foreground">ID: {user.institute_id}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={`${getRoleColor(user.role)} text-white`}>
+                          {user.role}
+                        </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge 
-                        className={`${institute.is_active ? 'bg-green-500' : 'bg-red-500'} text-white`}
-                      >
-                        {institute.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleInstituteStatus(institute.id, institute.is_active)}
-                      >
-                        {institute.is_active ? (
-                          <X className="h-4 w-4 text-red-500" />
-                        ) : (
-                          <Check className="h-4 w-4 text-green-500" />
-                        )}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="institutes" className="space-y-6">
+            <Card className="card-gradient animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Institute ID Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <Label htmlFor="institute-id">Institute ID</Label>
+                      <Input
+                        id="institute-id"
+                        placeholder="e.g., TECH001"
+                        value={newInstituteId}
+                        onChange={(e) => setNewInstituteId(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="institute-name">Institute Name</Label>
+                      <Input
+                        id="institute-name"
+                        placeholder="e.g., Tech Institute Main Campus"
+                        value={newInstituteName}
+                        onChange={(e) => setNewInstituteName(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={handleAddInstituteId} className="btn-gradient">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add ID
                       </Button>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Users Management */}
-        <Card className="card-gradient animate-slide-in-up delay-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              User Management
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={selectedRole} onValueChange={setSelectedRole}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Filter by role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="student">Student</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-3">
-              {filteredUsers.map((user) => (
-                <div 
-                  key={user.id} 
-                  className="flex items-center justify-between p-4 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary-foreground">
-                        {user.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
-                      <p className="text-xs text-muted-foreground">ID: {user.institute_id}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge className={`${getRoleColor(user.role)} text-white`}>
-                      {user.role}
-                    </Badge>
+                  <div className="space-y-2">
+                    {instituteIds.map((institute) => (
+                      <div 
+                        key={institute.id} 
+                        className="flex items-center justify-between p-3 bg-secondary rounded-lg"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div>
+                            <p className="font-medium">{institute.institute_id}</p>
+                            <p className="text-sm text-muted-foreground">{institute.institute_name}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge 
+                            className={`${institute.is_active ? 'bg-green-500' : 'bg-red-500'} text-white`}
+                          >
+                            {institute.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toggleInstituteStatus(institute.id, institute.is_active)}
+                          >
+                            {institute.is_active ? (
+                              <X className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <Check className="h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="system" className="space-y-6">
+            <Card className="card-gradient animate-fade-in">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  System Overview
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Database Statistics</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Total Users:</span>
+                        <span className="font-medium">{users.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Pending Approvals:</span>
+                        <span className="font-medium text-yellow-500">{pendingUsers.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Active Classes:</span>
+                        <span className="font-medium">{classes.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Tasks:</span>
+                        <span className="font-medium">{tasks.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Meetings:</span>
+                        <span className="font-medium">{meetings.length}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">System Health</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Database: Online</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>Authentication: Active</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span>File Storage: Available</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

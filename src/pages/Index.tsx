@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import FeaturesSection from '@/components/FeaturesSection';
 import LoginModal from '@/components/LoginModal';
+import AdminLoginModal from '@/components/AdminLoginModal';
 import Dashboard from '@/components/Dashboard';
 import AdminDashboard from '@/components/AdminDashboard';
 import { supabase } from '@/integrations/supabase/client';
@@ -124,7 +125,7 @@ const Index = () => {
             <p className="text-center text-muted-foreground mb-6">
               Please log in with admin credentials to access this area.
             </p>
-            <LoginModal 
+            <AdminLoginModal 
               isOpen={true} 
               onClose={() => navigate('/')}
               onLogin={handleLogin}

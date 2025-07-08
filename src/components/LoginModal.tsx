@@ -11,6 +11,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+interface PendingUser {
+  id: string;
+  name: string;
+  email: string;
+  institute_id: string;
+  role: string;
+  created_at: string;
+}
+
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,6 +37,10 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
   const [error, setError] = useState('');
   const [availableInstituteIds, setAvailableInstituteIds] = useState([]);
   const { toast } = useToast();
+
+  // Add state for pending approval message
+  const [showPendingMessage, setShowPendingMessage] = useState(false);
+  const [pendingUserData, setPendingUserData] = useState<PendingUser | null>(null);
 
   useEffect(() => {
     if (isOpen && activeTab === 'signup') {
@@ -115,8 +128,8 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
             name,
             institute_id: instituteId,
             role,
+            status: 'pending_approval'
           },
-          emailRedirectTo: `${window.location.origin}/`
         }
       });
 
@@ -130,12 +143,22 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       }
 
       if (data.user) {
-        toast({
-          title: "Account created successfully!",
-          description: "Please check your email to verify your account.",
+        // Store pending user data for display
+        setPendingUserData({
+          id: data.user.id,
+          name,
+          email,
+          institute_id: instituteId,
+          role,
+          created_at: new Date().toISOString()
         });
-
-        onClose();
+        
+        setShowPendingMessage(true);
+        
+        toast({
+          title: "Registration Submitted!",
+          description: "Your account is pending admin approval. You will be notified once approved.",
+        });
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -153,10 +176,79 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     setError('');
   };
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
+  const handleBackToLogin = () => {
+    setShowPendingMessage(false);
+    setPendingUserData(null);
+    setActiveTab('login');
     resetForm();
   };
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setShowPendingMessage(false);
+    setPendingUserData(null);
+    resetForm();
+  };
+
+  // Show pending approval message
+  if (showPendingMessage && pendingUserData) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md card-gradient animate-scale-in">
+          <DialogHeader>
+            <DialogTitle className="text-center gradient-text text-2xl font-bold">
+              Registration Pending
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 text-center">
+            <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-8 h-8 text-yellow-500" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Account Under Review</h3>
+              <p className="text-muted-foreground">
+                Your registration has been submitted and is awaiting admin approval.
+              </p>
+            </div>
+
+            <div className="bg-secondary p-4 rounded-lg text-left space-y-2">
+              <p><strong>Name:</strong> {pendingUserData.name}</p>
+              <p><strong>Email:</strong> {pendingUserData.email}</p>
+              <p><strong>Institute ID:</strong> {pendingUserData.institute_id}</p>
+              <p><strong>Role:</strong> {pendingUserData.role}</p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                You will receive an email notification once your account is approved by the administrator.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                This process typically takes 1-2 business days.
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleBackToLogin}
+                variant="outline"
+                className="flex-1"
+              >
+                Back to Login
+              </Button>
+              <Button
+                onClick={onClose}
+                className="flex-1 btn-gradient"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -262,7 +354,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
               <div className="space-y-2">
                 <Label htmlFor="institute-id" className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-                  Institute ID
+                  Institute ID *
                 </Label>
                 <Select value={instituteId} onValueChange={setInstituteId} required>
                   <SelectTrigger className="bg-input border-border">
@@ -276,6 +368,9 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Your account will require admin approval after registration
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -316,14 +411,14 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
                 className="w-full btn-gradient hover:scale-105 transition-all duration-300"
                 disabled={loading}
               >
-                {loading ? 'Creating account...' : 'Create Account'}
+                {loading ? 'Submitting for approval...' : 'Submit for Approval'}
               </Button>
             </form>
           </TabsContent>
         </Tabs>
 
         <div className="text-center text-sm text-muted-foreground mt-4">
-          <p>By continuing, you agree to our Terms of Service</p>
+          <p>New registrations require admin approval • By continuing, you agree to our Terms of Service</p>
         </div>
       </DialogContent>
     </Dialog>
