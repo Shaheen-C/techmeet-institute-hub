@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, LogIn, UserPlus, Shield } from 'lucide-react';
+import { AlertCircle, LogIn, UserPlus, Shield, Building2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -26,7 +26,32 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
   const [role, setRole] = useState('student');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [availableInstituteIds, setAvailableInstituteIds] = useState([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'signup') {
+      fetchAvailableInstituteIds();
+    }
+  }, [isOpen, activeTab]);
+
+  const fetchAvailableInstituteIds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('institute_ids')
+        .select('institute_id, institute_name')
+        .eq('is_active', true)
+        .order('institute_name');
+
+      if (error) {
+        console.error('Error fetching institute IDs:', error);
+      } else {
+        setAvailableInstituteIds(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching institute IDs:', err);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +100,12 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     setLoading(true);
     setError('');
 
+    if (!instituteId) {
+      setError('Please select an institute ID');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -90,7 +121,11 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       });
 
       if (error) {
-        setError(error.message);
+        if (error.message.includes('Invalid institute ID')) {
+          setError('The selected institute ID is not valid or has been deactivated.');
+        } else {
+          setError(error.message);
+        }
         return;
       }
 
@@ -187,6 +222,13 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
+
+            <div className="text-center text-sm text-muted-foreground">
+              <p className="flex items-center justify-center gap-1">
+                <Shield className="h-3 w-3" />
+                Admin access: shaheenshanu246@gmail.com
+              </p>
+            </div>
           </TabsContent>
 
           <TabsContent value="signup" className="space-y-4 animate-fade-in">
@@ -218,16 +260,22 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="institute-id">Institute ID</Label>
-                <Input
-                  id="institute-id"
-                  type="text"
-                  placeholder="Enter your institute ID"
-                  value={instituteId}
-                  onChange={(e) => setInstituteId(e.target.value)}
-                  required
-                  className="bg-input border-border"
-                />
+                <Label htmlFor="institute-id" className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Institute ID
+                </Label>
+                <Select value={instituteId} onValueChange={setInstituteId} required>
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder="Select your institute" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableInstituteIds.map((institute) => (
+                      <SelectItem key={institute.institute_id} value={institute.institute_id}>
+                        {institute.institute_id} - {institute.institute_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

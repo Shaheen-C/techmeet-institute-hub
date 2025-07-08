@@ -17,7 +17,10 @@ import {
   Plus,
   Edit,
   Trash2,
-  Shield
+  Shield,
+  Building2,
+  Check,
+  X
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -33,9 +36,13 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
   const [classes, setClasses] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [meetings, setMeetings] = useState([]);
+  const [instituteIds, setInstituteIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
+  const [newInstituteId, setNewInstituteId] = useState('');
+  const [newInstituteName, setNewInstituteName] = useState('');
+  const [editingInstitute, setEditingInstitute] = useState(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,10 +52,21 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
   const fetchAllData = async () => {
     try {
       // Fetch all users
-      const { data: usersData } = await supabase
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        toast({
+          title: "Error",
+          description: "Failed to fetch users. Please try again.",
+          variant: "destructive",
+        });
+      } else {
+        setUsers(usersData || []);
+      }
 
       // Fetch all classes
       const { data: classesData } = await supabase
@@ -79,10 +97,16 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
         `)
         .order('created_at', { ascending: false });
 
-      setUsers(usersData || []);
+      // Fetch institute IDs
+      const { data: instituteIdsData } = await supabase
+        .from('institute_ids')
+        .select('*')
+        .order('created_at', { ascending: false });
+
       setClasses(classesData || []);
       setTasks(tasksData || []);
       setMeetings(meetingsData || []);
+      setInstituteIds(instituteIdsData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -92,6 +116,79 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddInstituteId = async () => {
+    if (!newInstituteId || !newInstituteName) {
+      toast({
+        title: "Error",
+        description: "Please provide both institute ID and name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('institute_ids')
+        .insert([
+          {
+            institute_id: newInstituteId,
+            institute_name: newInstituteName,
+            is_active: true
+          }
+        ])
+        .select();
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to add institute ID. It may already exist.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setInstituteIds([...instituteIds, data[0]]);
+      setNewInstituteId('');
+      setNewInstituteName('');
+      
+      toast({
+        title: "Success",
+        description: "Institute ID added successfully.",
+      });
+    } catch (error) {
+      console.error('Error adding institute ID:', error);
+    }
+  };
+
+  const toggleInstituteStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('institute_ids')
+        .update({ is_active: !currentStatus })
+        .eq('id', id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update institute status.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setInstituteIds(instituteIds.map(inst => 
+        inst.id === id ? { ...inst, is_active: !currentStatus } : inst
+      ));
+
+      toast({
+        title: "Success",
+        description: `Institute ${!currentStatus ? 'activated' : 'deactivated'} successfully.`,
+      });
+    } catch (error) {
+      console.error('Error updating institute status:', error);
     }
   };
 
@@ -154,7 +251,7 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
 
       <div className="container mx-auto p-6 space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <Card className="card-gradient animate-slide-in-up delay-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -170,7 +267,7 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
 
           <Card className="card-gradient animate-slide-in-up delay-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Classes</CardTitle>
+              <CardTitle className="text-sm font-medium">Classes</CardTitle>
               <GraduationCap className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -181,18 +278,18 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
 
           <Card className="card-gradient animate-slide-in-up delay-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+              <CardTitle className="text-sm font-medium">Tasks</CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{tasks.length}</div>
-              <p className="text-xs text-muted-foreground">Assignments created</p>
+              <p className="text-xs text-muted-foreground">Assignments</p>
             </CardContent>
           </Card>
 
           <Card className="card-gradient animate-slide-in-up delay-400">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Meetings</CardTitle>
+              <CardTitle className="text-sm font-medium">Meetings</CardTitle>
               <Video className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -200,10 +297,97 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
               <p className="text-xs text-muted-foreground">Video sessions</p>
             </CardContent>
           </Card>
+
+          <Card className="card-gradient animate-slide-in-up delay-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Institute IDs</CardTitle>
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{instituteIds.length}</div>
+              <p className="text-xs text-muted-foreground">
+                {instituteIds.filter(i => i.is_active).length} active
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
+        {/* Institute ID Management */}
+        <Card className="card-gradient animate-slide-in-up delay-600">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Institute ID Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="institute-id">Institute ID</Label>
+                  <Input
+                    id="institute-id"
+                    placeholder="e.g., TECH001"
+                    value={newInstituteId}
+                    onChange={(e) => setNewInstituteId(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="institute-name">Institute Name</Label>
+                  <Input
+                    id="institute-name"
+                    placeholder="e.g., Tech Institute Main Campus"
+                    value={newInstituteName}
+                    onChange={(e) => setNewInstituteName(e.target.value)}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={handleAddInstituteId} className="btn-gradient">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add ID
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {instituteIds.map((institute) => (
+                  <div 
+                    key={institute.id} 
+                    className="flex items-center justify-between p-3 bg-secondary rounded-lg"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div>
+                        <p className="font-medium">{institute.institute_id}</p>
+                        <p className="text-sm text-muted-foreground">{institute.institute_name}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge 
+                        className={`${institute.is_active ? 'bg-green-500' : 'bg-red-500'} text-white`}
+                      >
+                        {institute.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleInstituteStatus(institute.id, institute.is_active)}
+                      >
+                        {institute.is_active ? (
+                          <X className="h-4 w-4 text-red-500" />
+                        ) : (
+                          <Check className="h-4 w-4 text-green-500" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Users Management */}
-        <Card className="card-gradient animate-slide-in-up delay-500">
+        <Card className="card-gradient animate-slide-in-up delay-700">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -256,70 +440,12 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
                     <Badge className={`${getRoleColor(user.role)} text-white`}>
                       {user.role}
                     </Badge>
-                    <Button size="sm" variant="outline">
-                      <Edit className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-
-        {/* Recent Activities */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="card-gradient animate-slide-in-left delay-600">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Recent Tasks
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {tasks.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                    <div>
-                      <p className="font-medium">{task.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {task.classes?.name} • {task.profiles?.name}
-                      </p>
-                    </div>
-                    <Badge variant="outline">
-                      {new Date(task.created_at).toLocaleDateString()}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-gradient animate-slide-in-right delay-700">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="h-5 w-5" />
-                Recent Meetings
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {meetings.slice(0, 5).map((meeting) => (
-                  <div key={meeting.id} className="flex items-center justify-between p-3 bg-secondary rounded-lg">
-                    <div>
-                      <p className="font-medium">{meeting.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {meeting.classes?.name} • {meeting.profiles?.name}
-                      </p>
-                    </div>
-                    <Badge className={`${getStatusColor(meeting.status)} text-white`}>
-                      {meeting.status}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

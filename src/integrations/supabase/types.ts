@@ -85,6 +85,33 @@ export type Database = {
           },
         ]
       }
+      institute_ids: {
+        Row: {
+          created_at: string | null
+          id: string
+          institute_id: string
+          institute_name: string
+          is_active: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          institute_id: string
+          institute_name: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          institute_id?: string
+          institute_name?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       meeting_participants: {
         Row: {
           duration: number | null
@@ -393,7 +420,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validate_institute_id: {
+        Args: { check_institute_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       meeting_status: "scheduled" | "active" | "ended"
