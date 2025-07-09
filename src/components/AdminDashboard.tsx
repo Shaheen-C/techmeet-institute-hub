@@ -60,7 +60,6 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
-        .neq('status', 'pending_approval')
         .order('created_at', { ascending: false });
 
       if (usersError) {
