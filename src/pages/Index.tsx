@@ -73,14 +73,24 @@ const Index = () => {
     setUser(userData);
     setUserProfile(userData.profile);
     
-    // If trying to access admin route, check if user is admin
-    if (isAdminRoute && userData.profile?.role !== 'admin') {
-      toast({
-        title: "Access Denied",
-        description: "You don't have permission to access the admin panel.",
-        variant: "destructive",
-      });
-      navigate('/');
+    // Handle admin route access
+    if (isAdminRoute) {
+      if (userData.profile?.role !== 'admin') {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to access the admin panel.",
+          variant: "destructive",
+        });
+        navigate('/');
+        return;
+      }
+      // Admin logged in on admin route - stay on admin route (don't navigate)
+      return;
+    }
+    
+    // For non-admin routes, redirect admin users to admin dashboard
+    if (userData.profile?.role === 'admin') {
+      navigate('/admin');
       return;
     }
   };
