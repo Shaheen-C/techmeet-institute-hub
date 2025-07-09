@@ -25,6 +25,14 @@ const Index = () => {
   // Check if current route is admin
   const isAdminRoute = location.pathname === '/admin';
 
+  // For admin route, we want to force login regardless of existing session
+  useEffect(() => {
+    if (isAdminRoute && session) {
+      // Clear the session for admin route to force fresh login
+      supabase.auth.signOut();
+    }
+  }, [isAdminRoute]);
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -33,7 +41,7 @@ const Index = () => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
+        if (session?.user && !isAdminRoute) {
           // Fetch user profile
           setTimeout(async () => {
             try {
@@ -59,15 +67,19 @@ const Index = () => {
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Check for existing session only for non-admin routes
+    if (!isAdminRoute) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      });
+    } else {
       setLoading(false);
-    });
+    }
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isAdminRoute]);
 
   const handleLogin = (userType: string, userData: any) => {
     setUser(userData);
