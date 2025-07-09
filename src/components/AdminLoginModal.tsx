@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, LogIn, Shield } from 'lucide-react';
+import { AlertCircle, LogIn, Shield, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -33,20 +33,30 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }: AdminLoginModalProps) => 
       });
 
       if (error) {
-        setError(error.message);
+        if (error.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Please check your admin credentials and try again.');
+        } else {
+          setError(error.message);
+        }
         return;
       }
 
       if (data.user) {
         // Fetch user profile
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
           .single();
 
+        if (profileError) {
+          setError('Error fetching user profile. Please contact support.');
+          await supabase.auth.signOut();
+          return;
+        }
+
         if (profile?.role !== 'admin') {
-          setError('Access denied. Admin credentials required.');
+          setError('Access denied. This account does not have admin privileges.');
           await supabase.auth.signOut();
           return;
         }
@@ -63,7 +73,8 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }: AdminLoginModalProps) => 
         onClose();
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -112,6 +123,18 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }: AdminLoginModalProps) => 
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          <Alert className="animate-fade-in bg-blue-50 border-blue-200">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              <strong>Need admin access?</strong> Ensure you have:
+              <ul className="mt-1 ml-4 list-disc text-sm">
+                <li>A valid user account in Supabase Auth</li>
+                <li>Profile role set to 'admin' in the profiles table</li>
+                <li>Correct email and password credentials</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
 
           <Button
             type="submit"
