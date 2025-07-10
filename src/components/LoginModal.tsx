@@ -59,8 +59,6 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     if (isOpen && activeTab === 'signup') {
       fetchAvailableInstituteIds();
     }
-      fetchAvailableInstituteIds();
-    }
   }, [isOpen, activeTab]);
 
   const fetchAvailableInstituteIds = async () => {
@@ -68,22 +66,6 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       const { data, error } = await supabase
         .from('institute_ids')
         .select('*')
-        .eq('is_active', true);
-
-      if (error) {
-        console.error('Error fetching institute IDs:', error);
-        return;
-      }
-
-      setAvailableInstituteIds(data || []);
-    } catch (err) {
-      console.error('Error fetching institute IDs:', err);
-    }
-  };
-    try {
-      const { data, error } = await supabase
-        .from('institute_ids')
-        .select('id, institute_id, institute_name, is_active')
         .eq('is_active', true);
 
       if (error) {
@@ -160,16 +142,6 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       setLoading(false);
       return;
     }
-    // Validate institute ID against available active institute IDs
-    const isValidInstituteId = availableInstituteIds.some(
-      inst => inst.institute_id.toLowerCase() === instituteId.trim().toLowerCase()
-    );
-
-    if (!isValidInstituteId) {
-      setError('Invalid institute ID. Please contact your institution admin for the correct Institute ID.');
-      setLoading(false);
-      return;
-    }
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -177,8 +149,9 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
         password,
         options: {
           data: {
-            name,
-        setError(error.message);
+            name
+          }
+        }
       });
 
       if (error) {
