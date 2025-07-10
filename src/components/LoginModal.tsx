@@ -32,6 +32,12 @@ interface InstituteId {
   institute_name: string;
   is_active: boolean;
 }
+interface InstituteId {
+  id: string;
+  institute_id: string;
+  institute_name: string;
+  is_active: boolean;
+}
 
 const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
   const [activeTab, setActiveTab] = useState('login');
@@ -53,9 +59,27 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     if (isOpen && activeTab === 'signup') {
       fetchAvailableInstituteIds();
     }
+      fetchAvailableInstituteIds();
+    }
   }, [isOpen, activeTab]);
 
   const fetchAvailableInstituteIds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('institute_ids')
+        .select('*')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error fetching institute IDs:', error);
+        return;
+      }
+
+      setAvailableInstituteIds(data || []);
+    } catch (err) {
+      console.error('Error fetching institute IDs:', err);
+    }
+  };
     try {
       const { data, error } = await supabase
         .from('institute_ids')
@@ -127,6 +151,16 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     }
 
     // Validate institute ID against available active institute IDs
+    const validInstituteId = availableInstituteIds.find(
+      inst => inst.institute_id.toLowerCase() === instituteId.toLowerCase()
+    );
+
+    if (!validInstituteId) {
+      setError('Invalid institute ID. Please contact your institution admin for the correct Institute ID.');
+      setLoading(false);
+      return;
+    }
+    // Validate institute ID against available active institute IDs
     const isValidInstituteId = availableInstituteIds.some(
       inst => inst.institute_id.toLowerCase() === instituteId.trim().toLowerCase()
     );
@@ -144,11 +178,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
         options: {
           data: {
             name,
-            institute_id: instituteId,
-            role,
-            status: 'pending_approval'
-          },
-        }
+        setError(error.message);
       });
 
       if (error) {
@@ -162,7 +192,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
           id: data.user.id,
           name,
           email,
-          institute_id: instituteId,
+          institute_id: validInstituteId.institute_id,
           role,
           created_at: new Date().toISOString()
         });
@@ -381,6 +411,11 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
                 />
                 <p className="text-xs text-muted-foreground">
                   Contact your institution admin for the correct Institute ID
+                  {availableInstituteIds.length > 0 && (
+                    <span className="block mt-1">
+                      Available: {availableInstituteIds.map(inst => inst.institute_id).join(', ')}
+                    </span>
+                  )}
                 </p>
               </div>
 
