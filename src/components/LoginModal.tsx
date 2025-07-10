@@ -26,6 +26,13 @@ interface LoginModalProps {
   onLogin: (userType: string, userData: any) => void;
 }
 
+interface InstituteId {
+  id: string;
+  institute_id: string;
+  institute_name: string;
+  is_active: boolean;
+}
+
 const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
   const [activeTab, setActiveTab] = useState('login');
   const [email, setEmail] = useState('');
@@ -35,7 +42,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
   const [role, setRole] = useState('student');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [availableInstituteIds, setAvailableInstituteIds] = useState([]);
+  const [availableInstituteIds, setAvailableInstituteIds] = useState<InstituteId[]>([]);
   const { toast } = useToast();
 
   // Add state for pending approval message
@@ -43,10 +50,28 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
   const [pendingUserData, setPendingUserData] = useState<PendingUser | null>(null);
 
   useEffect(() => {
-    // No longer need to fetch institute IDs since we're using text input
+    if (isOpen && activeTab === 'signup') {
+      fetchAvailableInstituteIds();
+    }
   }, [isOpen, activeTab]);
 
-  // Remove the fetchAvailableInstituteIds function since we no longer need it
+  const fetchAvailableInstituteIds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('institute_ids')
+        .select('id, institute_id, institute_name, is_active')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error fetching institute IDs:', error);
+        return;
+      }
+
+      setAvailableInstituteIds(data || []);
+    } catch (err) {
+      console.error('Error fetching institute IDs:', err);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +126,17 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       return;
     }
 
+    // Validate institute ID against available active institute IDs
+    const isValidInstituteId = availableInstituteIds.some(
+      inst => inst.institute_id.toLowerCase() === instituteId.trim().toLowerCase()
+    );
+
+    if (!isValidInstituteId) {
+      setError('Invalid institute ID. Please contact your institution admin for the correct Institute ID.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -116,11 +152,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       });
 
       if (error) {
-        if (error.message.includes('Invalid institute ID')) {
-          setError('The selected institute ID is not valid or has been deactivated.');
-        } else {
-          setError(error.message);
-        }
+        setError(error.message);
         return;
       }
 
