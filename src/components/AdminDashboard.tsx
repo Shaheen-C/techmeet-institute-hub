@@ -207,22 +207,39 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
 
   const handleApproveUser = async (pendingUser: any) => {
     try {
-      // Create the user account
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: pendingUser.email,
-        password: 'TempPassword123!', // Temporary password
-        email_confirm: true,
-        user_metadata: {
-          name: pendingUser.name,
-          institute_id: pendingUser.institute_id,
-          role: pendingUser.role
-        }
-      });
-
-      if (authError) {
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
         toast({
           title: "Error",
-          description: "Failed to create user account.",
+          description: "You must be logged in to perform this action.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Call the Edge Function to create the user
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: pendingUser.name,
+          email: pendingUser.email,
+          institute_id: pendingUser.institute_id,
+          role: pendingUser.role
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to create user account.",
           variant: "destructive",
         });
         return;
