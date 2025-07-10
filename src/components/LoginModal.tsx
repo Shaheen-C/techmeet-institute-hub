@@ -182,14 +182,12 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       // First add to pending_users table
       const { error: pendingError } = await supabase
         .from('pending_users')
-        .insert([
-          {
-            name,
-            email,
-            institute_id: validInstituteId.institute_id,
-            role
-          }
-        ]);
+        .insert({
+          name,
+          email,
+          institute_id: validInstituteId.institute_id,
+          role: role as 'student' | 'teacher' | 'admin'
+        });
 
       if (pendingError) {
         console.error('Error adding to pending users:', pendingError);

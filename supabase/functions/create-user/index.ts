@@ -80,7 +80,7 @@ serve(async (req) => {
       )
     }
 
-    // Create the user
+    // Create the user with approved status to bypass pending_users table
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: 'TempPassword123!', // Temporary password
@@ -88,7 +88,8 @@ serve(async (req) => {
       user_metadata: {
         name,
         institute_id,
-        role
+        role,
+        status: 'approved' // This will make the trigger create the profile directly
       }
     })
 

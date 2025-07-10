@@ -220,7 +220,7 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
       }
 
       // Call the Edge Function to create the user
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-user`, {
+      const response = await fetch(`https://phtlgzuavzqzfrseqgou.supabase.co/functions/v1/create-user`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
