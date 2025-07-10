@@ -63,6 +63,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
 
   const fetchAvailableInstituteIds = async () => {
     try {
+      console.log('Fetching institute IDs...'); // Debug log
       const { data, error } = await supabase
         .from('institute_ids')
         .select('*')
@@ -70,13 +71,32 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
 
       if (error) {
         console.error('Error fetching institute IDs:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load institute IDs. Please try again.",
+          variant: "destructive",
+        });
         return;
       }
 
-      console.log('Available institute IDs:', data); // Debug log
+      console.log('Fetched institute IDs:', data); // Debug log
       setAvailableInstituteIds(data || []);
+      
+      if (!data || data.length === 0) {
+        console.warn('No active institute IDs found in database');
+        toast({
+          title: "Warning",
+          description: "No active institute IDs found. Please contact support.",
+          variant: "destructive",
+        });
+      }
     } catch (err) {
       console.error('Error fetching institute IDs:', err);
+      toast({
+        title: "Error",
+        description: "Failed to connect to database. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -136,6 +156,13 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     // Validate institute ID against available active institute IDs
     console.log('Validating institute ID:', instituteId); // Debug log
     console.log('Available IDs:', availableInstituteIds); // Debug log
+    console.log('Available IDs count:', availableInstituteIds.length); // Debug log
+    
+    if (availableInstituteIds.length === 0) {
+      setError('Institute IDs not loaded. Please refresh the page and try again.');
+      setLoading(false);
+      return;
+    }
     
     const validInstituteId = availableInstituteIds.find(
       inst => inst.institute_id.toLowerCase() === instituteId.toLowerCase()
@@ -144,7 +171,9 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     console.log('Valid institute ID found:', validInstituteId); // Debug log
 
     if (!validInstituteId) {
-      setError('Invalid institute ID. Please contact your institution admin for the correct Institute ID.');
+      const availableIds = availableInstituteIds.map(inst => inst.institute_id).join(', ');
+      setError(`Invalid institute ID "${instituteId}". Available institute IDs: ${availableIds}`);
+      console.log('Validation failed. Input:', instituteId, 'Available:', availableIds);
       setLoading(false);
       return;
     }
@@ -429,7 +458,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
                   Contact your institution admin for the correct Institute ID
                   {availableInstituteIds.length > 0 && (
                     <span className="block mt-1">
-                      Available: {availableInstituteIds.map(inst => inst.institute_id).join(', ')}
+                      <strong>Available IDs:</strong> {availableInstituteIds.map(inst => inst.institute_id).join(', ')}
                     </span>
                   )}
                 </p>
