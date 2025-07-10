@@ -101,7 +101,7 @@ const Index = () => {
     }
     
     // For non-admin routes, redirect admin users to admin dashboard
-    if (userData.profile?.role === 'admin') {
+    if (userData.profile?.role === 'admin' && !isAdminRoute) {
       navigate('/admin');
       return;
     }

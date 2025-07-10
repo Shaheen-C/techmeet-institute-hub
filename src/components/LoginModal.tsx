@@ -43,28 +43,10 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
   const [pendingUserData, setPendingUserData] = useState<PendingUser | null>(null);
 
   useEffect(() => {
-    if (isOpen && activeTab === 'signup') {
-      fetchAvailableInstituteIds();
-    }
+    // No longer need to fetch institute IDs since we're using text input
   }, [isOpen, activeTab]);
 
-  const fetchAvailableInstituteIds = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('institute_ids')
-        .select('institute_id, institute_name')
-        .eq('is_active', true)
-        .order('institute_name');
-
-      if (error) {
-        console.error('Error fetching institute IDs:', error);
-      } else {
-        setAvailableInstituteIds(data || []);
-      }
-    } catch (err) {
-      console.error('Error fetching institute IDs:', err);
-    }
-  };
+  // Remove the fetchAvailableInstituteIds function since we no longer need it
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,8 +95,8 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     setLoading(true);
     setError('');
 
-    if (!instituteId) {
-      setError('Please select an institute ID');
+    if (!instituteId.trim()) {
+      setError('Please enter an institute ID');
       setLoading(false);
       return;
     }
@@ -356,20 +338,17 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
                   <Building2 className="h-4 w-4" />
                   Institute ID *
                 </Label>
-                <Select value={instituteId} onValueChange={setInstituteId} required>
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Select your institute" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableInstituteIds.map((institute) => (
-                      <SelectItem key={institute.institute_id} value={institute.institute_id}>
-                        {institute.institute_id} - {institute.institute_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="institute-id"
+                  type="text"
+                  placeholder="Enter your institute ID (e.g., TECH001)"
+                  value={instituteId}
+                  onChange={(e) => setInstituteId(e.target.value)}
+                  required
+                  className="bg-input border-border"
+                />
                 <p className="text-xs text-muted-foreground">
-                  Your account will require admin approval after registration
+                  Contact your institution admin for the correct Institute ID
                 </p>
               </div>
 

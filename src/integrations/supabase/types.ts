@@ -261,6 +261,33 @@ export type Database = {
           },
         ]
       }
+      pending_users: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          institute_id: string
+          name: string
+          role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          institute_id: string
+          name: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          institute_id?: string
+          name?: string
+          role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
