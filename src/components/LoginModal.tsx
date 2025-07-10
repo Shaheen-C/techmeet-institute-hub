@@ -73,6 +73,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
         return;
       }
 
+      console.log('Available institute IDs:', data); // Debug log
       setAvailableInstituteIds(data || []);
     } catch (err) {
       console.error('Error fetching institute IDs:', err);
@@ -133,9 +134,14 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     }
 
     // Validate institute ID against available active institute IDs
+    console.log('Validating institute ID:', instituteId); // Debug log
+    console.log('Available IDs:', availableInstituteIds); // Debug log
+    
     const validInstituteId = availableInstituteIds.find(
       inst => inst.institute_id.toLowerCase() === instituteId.toLowerCase()
     );
+
+    console.log('Valid institute ID found:', validInstituteId); // Debug log
 
     if (!validInstituteId) {
       setError('Invalid institute ID. Please contact your institution admin for the correct Institute ID.');
@@ -144,6 +150,42 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
     }
 
     try {
+      // First add to pending_users table
+      const { error: pendingError } = await supabase
+        .from('pending_users')
+        .insert([
+          {
+            name,
+            email,
+            institute_id: validInstituteId.institute_id,
+            role
+          }
+        ]);
+
+      if (pendingError) {
+        console.error('Error adding to pending users:', pendingError);
+        setError('Failed to submit registration. Please try again.');
+        return;
+      }
+
+      // Store pending user data for display
+      setPendingUserData({
+        id: 'pending',
+        name,
+        email,
+        institute_id: validInstituteId.institute_id,
+        role,
+        created_at: new Date().toISOString()
+      });
+      
+      setShowPendingMessage(true);
+      
+      toast({
+        title: "Registration Submitted!",
+        description: "Your account is pending admin approval. You will be notified once approved.",
+      });
+
+      /* Remove the auth.signUp call since we're using pending approval
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -177,6 +219,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
           description: "Your account is pending admin approval. You will be notified once approved.",
         });
       }
+      */
     } catch (err) {
       setError('An unexpected error occurred');
     } finally {
