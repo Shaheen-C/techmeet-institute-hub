@@ -73,7 +73,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
         console.error('Error fetching institute IDs:', error);
         toast({
           title: "Error",
-          description: "Failed to load institute IDs. Please try again.",
+          description: `Failed to load institute IDs: ${error.message}`,
           variant: "destructive",
         });
         return;
@@ -85,8 +85,8 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
       if (!data || data.length === 0) {
         console.warn('No active institute IDs found in database');
         toast({
-          title: "Warning",
-          description: "No active institute IDs found. Please contact support.",
+          title: "No Institute IDs",
+          description: "No active institute IDs found. The database may be initializing. Please try again in a moment.",
           variant: "destructive",
         });
       }
