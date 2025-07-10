@@ -36,9 +36,21 @@ serve(async (req) => {
       )
     }
 
-    // Verify the user is authenticated and is an admin
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+    // Create a client with the user's token for verification
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
+    )
+
+    // Verify the user is authenticated and get their profile
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser()
     
     if (authError || !user) {
       return new Response(
@@ -51,7 +63,7 @@ serve(async (req) => {
     }
 
     // Check if user is admin
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { data: profile, error: profileError } = await supabaseUser
       .from('profiles')
       .select('role')
       .eq('id', user.id)
