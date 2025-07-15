@@ -262,6 +262,14 @@ const AdminDashboard = ({ user, profile, onLogout }: AdminDashboardProps) => {
         title: "User Approved",
         description: `${pendingUser.name} has been approved and can now log in.`,
       });
+      
+      // Show additional info about password setup
+      setTimeout(() => {
+        toast({
+          title: "Password Setup Email Sent",
+          description: `${pendingUser.name} will receive an email to set up their password.`,
+        });
+      }, 2000);
     } catch (error) {
       console.error('Error approving user:', error);
       toast({

@@ -92,16 +92,15 @@ serve(async (req) => {
       )
     }
 
-    // Create the user with approved status to bypass pending_users table
+    // Create the user with approved status and send password reset email
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: 'TempPassword123!', // Temporary password
       email_confirm: true,
       user_metadata: {
         name,
         institute_id,
         role,
-        status: 'approved' // This will make the trigger create the profile directly
+        status: 'approved'
       }
     })
 
@@ -115,11 +114,25 @@ serve(async (req) => {
       )
     }
 
+    // Send password reset email so user can set their own password
+    const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'recovery',
+      email: email,
+      options: {
+        redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.supabase.co')}/auth/v1/verify`
+      }
+    })
+
+    if (resetError) {
+      console.error('Error sending password reset email:', resetError)
+      // Don't fail the user creation if email fails, just log it
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         user: newUser.user,
-        message: 'User created successfully' 
+        message: 'User created successfully. A password setup email has been sent to the user.' 
       }),
       { 
         status: 200, 

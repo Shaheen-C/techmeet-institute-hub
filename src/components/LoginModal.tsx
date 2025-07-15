@@ -360,6 +360,13 @@ const LoginModal = ({ isOpen, onClose, onLogin }: LoginModalProps) => {
 
           <TabsContent value="login" className="space-y-4 animate-fade-in">
             <form onSubmit={handleLogin} className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-blue-800 text-sm">
+                  <strong>New users:</strong> After admin approval, you'll receive an email to set up your password. 
+                  Check your email and follow the link to create your password before logging in.
+                </p>
+              </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
